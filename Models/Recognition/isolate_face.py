@@ -1,18 +1,51 @@
 import cv2
 import streamlit as st
+from fer import FER
 import numpy as np
 
-# Charger le classificateur de visages
-face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_alt.xml')
+# Initialiser le détecteur FER
+def initialize_detector(mtcnn=False):
+    """Initialise le détecteur FER."""
+    return FER(mtcnn=mtcnn)
+
+
+def detect_emotions(frame, detector):
+    """
+    Détecte les visages et reconnaît les émotions sur une image.
+
+    Parameters:
+        frame (numpy array): Image capturée (frame de la caméra).
+        detector (FER): Instance du détecteur FER.
+
+    Returns:
+        numpy array: Image avec des boîtes englobantes et étiquettes des émotions.
+    """
+    results = detector.detect_emotions(frame)
+
+    for result in results:
+        box = result['box']
+        emotions = result['emotions']
+        top_emotion, score = detector.top_emotion(frame)
+
+        # Dessiner un rectangle autour du visage
+        x, y, width, height = box
+        cv2.rectangle(frame, (x, y), (x + width, y + height), (0, 255, 0), 2)
+
+        # Ajouter le texte de l'émotion dominante
+        text = f"{top_emotion} ({score:.2f})"
+        cv2.putText(frame, text, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+
+    return frame
+
+
+# Initialiser le détecteur FER
+detector = initialize_detector(mtcnn=True)
 
 # Initialiser la caméra
 cap = cv2.VideoCapture(0)
 
-# Définir les dimensions de l'image
-image_size = (128, 128, 3)
-
 # Créer l'interface Streamlit
-st.title("Détection de visages en temps réel")
+st.title("Reconnaissance des émotions en temps réel")
 st.write("Appuyez sur 'q' pour quitter")
 
 # Créer un espace réservé pour l'affichage de la vidéo
@@ -23,24 +56,11 @@ while True:
     if not ret:
         break
 
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    # Détecter les visages
-    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-
-    if len(faces) <= 2:
-        for (x, y, w, h) in faces:
-            # Dessiner des rectangles autour des visages
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
-
-            # Isoler le visage détecté
-            isolated_face = frame[y:y + h, x:x + w]
-            isolated_face = cv2.resize(isolated_face, image_size[:2])
-
-            # Ici vous pouvez ajouter un modèle pour prédire, par exemple
-            # prediction = model.predict(isolated_face)
+    # Reconnaître les émotions
+    frame_with_emotions = detect_emotions(frame, detector)
 
     # Convertir l'image pour l'affichage dans Streamlit (en RGB)
-    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    frame_rgb = cv2.cvtColor(frame_with_emotions, cv2.COLOR_BGR2RGB)
 
     # Afficher la vidéo image par image dans l'espace réservé
     frame_placeholder.image(frame_rgb, channels="RGB", use_container_width=True)
