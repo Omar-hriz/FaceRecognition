@@ -2,6 +2,8 @@ import cv2
 import streamlit as st
 from fer import FER
 import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
 
 # Initialiser le détecteur FER
 def initialize_detector(mtcnn=False):
@@ -70,6 +72,9 @@ col_center = st.columns([1, 3, 1])[1]  # Seule la colonne du milieu affiche le f
 with col_center:
     frame_placeholder = st.empty()
     emotion_placeholder = st.empty()
+    chart_placeholder = st.empty()
+
+emotion_history = []
 
 while True:
     ret, frame = cap.read()
@@ -88,6 +93,7 @@ while True:
                 st.markdown(f"### Visage {i + 1}")
                 top_emotion = max(emotions, key=emotions.get)
                 emotions_list = list(emotions.items())
+                emotion_history.append(emotions)
                 for j in range(0, len(emotions_list), 3):
                     cols = st.columns(3)
                     for col, (emotion, score) in zip(cols, emotions_list[j:j + 3]):
@@ -108,7 +114,17 @@ while True:
                             )
         else:
             st.write("Aucune émotion détectée.")
-
+    
+    # Affichage de l'évolution des émotions
+    if emotion_history:
+        df = pd.DataFrame(emotion_history).rolling(5).mean()
+        fig, ax = plt.subplots()
+        df.plot(ax=ax)
+        ax.set_title("Évolution des émotions au fil du temps")
+        ax.set_xlabel("Temps")
+        ax.set_ylabel("Score des émotions")
+        chart_placeholder.pyplot(fig)
+    
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
